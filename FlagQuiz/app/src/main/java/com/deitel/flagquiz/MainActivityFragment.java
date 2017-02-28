@@ -210,6 +210,8 @@ public class MainActivityFragment extends Fragment {
       int correct = fileNameList.indexOf(correctAnswer);
       fileNameList.add(fileNameList.remove(correct));
 
+      List<String> buttonLabelList = getButtonLabels(region);
+
       // add 2, 4, 6 or 8 guess Buttons based on the value of guessRows
       for (int row = 0; row < guessRows; row++) {
          // place Buttons in currentTableRow
@@ -222,8 +224,10 @@ public class MainActivityFragment extends Fragment {
             newGuessButton.setEnabled(true);
 
             // get country name and set it as newGuessButton's text
-            String filename = fileNameList.get((row * 2) + column);
+            String filename = buttonLabelList.get(buttonLabelList.size() - 1);
+            buttonLabelList.remove(filename);
             newGuessButton.setText(getCountryName(filename));
+            newGuessButton.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
          }
       }
 
@@ -233,6 +237,34 @@ public class MainActivityFragment extends Fragment {
       LinearLayout randomRow = guessLinearLayouts[row]; // get the row
       String countryName = getCountryName(correctAnswer);
       ((Button) randomRow.getChildAt(column)).setText(countryName);
+   }
+
+   private List<String> getButtonLabels(String region) {
+      List<String> copiedFileNameList = new ArrayList<>();
+      for (String i : fileNameList) {
+         copiedFileNameList.add(i);
+      }
+      copiedFileNameList.remove(correctAnswer);
+      List<String> buttonLabels = new ArrayList<>();
+      int sameRegionCount = guessRows;
+      String filename;
+      for (int a = 0; a < guessRows*2; a++) {
+         int i = random.nextInt(copiedFileNameList.size());
+         filename = copiedFileNameList.get(i);
+         copiedFileNameList.remove(filename);
+         if (sameRegionCount != 0) {
+            while (!filename.substring(0, filename.indexOf('-')).equals(region)) {
+               i = random.nextInt(copiedFileNameList.size());
+               filename = copiedFileNameList.get(i);
+               copiedFileNameList.remove(filename);
+            }
+            sameRegionCount--;
+            buttonLabels.add(filename);
+         } else {
+            buttonLabels.add(filename);
+         }
+      }
+      return buttonLabels;
    }
 
    // parses the country flag file name and returns the country name
@@ -290,6 +322,8 @@ public class MainActivityFragment extends Fragment {
          String guess = guessButton.getText().toString();
          String answer = getCountryName(correctAnswer);
          ++totalGuesses; // increment number of guesses the user has made
+
+         setButtonFlagImage(guessButton, guess);
 
          if (guess.equals(answer)) { // if the guess is correct
             ++correctAnswers; // increment the number of correct answers
@@ -357,6 +391,34 @@ public class MainActivityFragment extends Fragment {
          }
       }
    };
+
+   private void setButtonFlagImage(Button guessButton, String guess) {
+      // use AssetManager to load flag image from assets folder
+      AssetManager assets = getActivity().getAssets();
+      String guessRegion = "";
+
+      // find the region of the guessed country
+      for (String i : fileNameList) {
+         if (getCountryName(i).equals(guess)) {
+            guessRegion = i.substring(0, i.indexOf("-"));
+         }
+      }
+
+      // format the flag path
+      String guessFlag = (guessRegion + "/" + guessRegion + "-" + guess.replace(" ", "_") + ".png");
+
+      //display chosen answer flag
+      try (InputStream stream =
+                   assets.open(guessFlag)) {
+         // load the asset as a Drawable and display on the flagImageView
+         Drawable flag = Drawable.createFromStream(stream, guess);
+         guessButton.setCompoundDrawablesWithIntrinsicBounds(null, null, flag, null);
+
+      }
+      catch (IOException exception) {
+         Log.e(TAG, "Error loading " + guess, exception);
+      }
+   }
 
    // utility method that disables all answer Buttons
    private void disableButtons() {
