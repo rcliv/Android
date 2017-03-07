@@ -34,6 +34,7 @@ public class MainActivity extends AppCompatActivity implements MainActivityFragm
    public static final String FILE_NAME_LIST = "pref_fileNameList";
    public static final String CORRECT_ANSWER = "pref_correctAnswer";
    public static final String BUTTON_OPTIONS_LIST = "pref_buttonOptionsList";
+   public static final String DISABLED_BUTTONS_LIST = "pref_disabledButtonsList";
 
 
    private boolean phoneDevice = true; // used to force portrait mode
@@ -228,6 +229,7 @@ public class MainActivity extends AppCompatActivity implements MainActivityFragm
       quizFragment.updateFileNameList(PreferenceManager.getDefaultSharedPreferences(this));
       quizFragment.updateCorrectAnswer(PreferenceManager.getDefaultSharedPreferences(this));
       quizFragment.updateButtonOptionsList(PreferenceManager.getDefaultSharedPreferences(this));
+      quizFragment.updateDisabledButtonsList(PreferenceManager.getDefaultSharedPreferences(this));
    }
 
 
@@ -256,6 +258,7 @@ public class MainActivity extends AppCompatActivity implements MainActivityFragm
 
    // Commit the transaction
       transaction.commit();
+      getSupportFragmentManager().executePendingTransactions();
    }
 }
 

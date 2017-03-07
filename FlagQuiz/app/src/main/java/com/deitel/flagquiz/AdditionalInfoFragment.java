@@ -44,11 +44,11 @@ public class AdditionalInfoFragment extends Fragment {
         questionNum.setText(getString(R.string.question, (qNum), 10));
 
         TextView article = (TextView) getActivity().findViewById(R.id.addInfoTextView);
-        String addInfoText = "Region: " + addInfoRegion + "\nFlag: " + addInfoFlag + "\nName: Robby Lagen";
+        String addInfoText = "Region: " + addInfoRegion.replace('_', ' ') + "\nFlag: " + addInfoFlag.replace('_', ' ') + "\nName: Robby Lagen";
         article.setText(addInfoText);
 
         TextView correctAns = (TextView) getActivity().findViewById(R.id.addInfoAnswerTextView);
-        String cAns = addInfoFlag + "!";
+        String cAns = addInfoFlag.replace('_', ' ') + "!";
         correctAns.setText(cAns);
     }
 

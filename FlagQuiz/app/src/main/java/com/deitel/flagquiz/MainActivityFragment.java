@@ -60,6 +60,7 @@ public class MainActivityFragment extends Fragment {
    private int questionNum;
    private boolean initialLoad;
    private List<String> buttonOptionsList;
+   private List<String> disabledButtonsList;
 
    private LinearLayout quizLinearLayout; // layout that contains the quiz
    private TextView questionNumberTextView; // shows current question #
@@ -86,6 +87,7 @@ public class MainActivityFragment extends Fragment {
       random = new SecureRandom();
       handler = new Handler();
       buttonOptionsList = new ArrayList<>();
+      disabledButtonsList = new ArrayList<>();
 
       // load the shake animation that's used for incorrect answers
       shakeAnimation = AnimationUtils.loadAnimation(getActivity(),
@@ -252,6 +254,13 @@ public class MainActivityFragment extends Fragment {
       editor.apply();
    }
 
+   public void updateDisabledButtonsList(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      Set<String> a = new HashSet<>(disabledButtonsList);
+      editor.putStringSet(MainActivity.DISABLED_BUTTONS_LIST, a);
+      editor.apply();
+   }
+
    public void loadStateFromPreferences(SharedPreferences sharedPreferences) {
       String qNum = sharedPreferences.getString(MainActivity.QUESTION_NUM, null);
       if (!qNum.equals(null)) {
@@ -284,6 +293,10 @@ public class MainActivityFragment extends Fragment {
       List<String> bOptionsList = new ArrayList<>(sharedPreferences.getStringSet(MainActivity.BUTTON_OPTIONS_LIST, null));
       if (bOptionsList != null) {
          buttonOptionsList = bOptionsList;
+      }
+      List<String> dButtonsList = new ArrayList<>(sharedPreferences.getStringSet(MainActivity.DISABLED_BUTTONS_LIST, null));
+      if (dButtonsList != null) {
+         disabledButtonsList = dButtonsList;
       }
    }
 
@@ -424,6 +437,14 @@ public class MainActivityFragment extends Fragment {
             buttonLabelList.remove(filename);
             newGuessButton.setText(getCountryName(filename));
             newGuessButton.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
+            if (disabledButtonsList != null && disabledButtonsList.size() != 0) {
+               for (String i : disabledButtonsList) {
+                  if (i.equals(getCountryName(filename))) {
+                     newGuessButton.setEnabled(false);
+                     setButtonFlagImage(newGuessButton, i);
+                  }
+               }
+            }
          }
       }
 
@@ -546,6 +567,7 @@ public class MainActivityFragment extends Fragment {
             final String addInfoStr = quizCountriesList.remove(0);
             correctAnswer = "";
             buttonOptionsList.clear();
+            disabledButtonsList.clear();
 
             // display correct answer in green text
             answerTextView.setText(answer + "!");
@@ -559,8 +581,6 @@ public class MainActivityFragment extends Fragment {
                endGame();
             }
             else { // answer is correct but quiz is not over
-
-               //mCallback.displayAddInfoFrag(addInfoStr);
 
                // load the next flag after a 2-second delay
                handler.postDelayed(
@@ -582,6 +602,7 @@ public class MainActivityFragment extends Fragment {
                final String addInfoStr = quizCountriesList.remove(0);
                correctAnswer = "";
                buttonOptionsList.clear();
+               disabledButtonsList.clear();
 
                answerTextView.setText("The correct answer is " + answer + "!");
                answerTextView.setTextColor(getResources().getColor(
@@ -610,6 +631,7 @@ public class MainActivityFragment extends Fragment {
                answerTextView.setTextColor(getResources().getColor(
                        R.color.incorrect_answer, getContext().getTheme()));
                guessButton.setEnabled(false); // disable incorrect answer
+               disabledButtonsList.add(guess);
             }
          }
       }
