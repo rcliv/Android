@@ -20,4 +20,13 @@
       android:persistent="true"
       android:defaultValue="@array/regions_list" />
 
+   <ListPreference
+       android:entries="@array/guess_amount_list"
+       android:entryValues="@array/guess_amount_list"
+       android:key="pref_numberOfGuesses"
+       android:title="@string/number_of_guesses"
+       android:summary="@string/number_of_guesses_description"
+       android:persistent="true"
+       android:defaultValue="7" />
+
 </PreferenceScreen>

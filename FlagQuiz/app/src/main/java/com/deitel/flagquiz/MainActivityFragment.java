@@ -7,11 +7,13 @@ import java.io.InputStream;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
@@ -20,8 +22,10 @@ import android.content.res.AssetManager;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -46,17 +50,28 @@ public class MainActivityFragment extends Fragment {
    private Set<String> regionsSet; // world regions in current quiz
    private String correctAnswer; // correct country for the current flag
    private int totalGuesses; // number of guesses made
-   private int correctAnswers; // number of correct guesses
+   private int correctGuesses; // number of correct guesses
    private int guessRows; // number of rows displaying guess Buttons
    private SecureRandom random; // used to randomize the quiz
    private Handler handler; // used to delay loading next flag
    private Animation shakeAnimation; // animation for incorrect guess
+   private int guessAmount; // amount of guesses allowed per flag
+   private int guessesLeft; // amount of guesses left in this turn
+   private int questionNum;
+   private boolean initialLoad;
+   private List<String> buttonOptionsList;
 
    private LinearLayout quizLinearLayout; // layout that contains the quiz
    private TextView questionNumberTextView; // shows current question #
    private ImageView flagImageView; // displays a flag
    private LinearLayout[] guessLinearLayouts; // rows of answer Buttons
    private TextView answerTextView; // displays correct answer
+
+   DynamicFrag mCallback;
+
+   public interface DynamicFrag {
+      void displayAddInfoFrag(String addInfoStr, int qNum);
+   }
 
    // configures the MainActivityFragment when its View is created
    @Override
@@ -70,6 +85,7 @@ public class MainActivityFragment extends Fragment {
       quizCountriesList = new ArrayList<>();
       random = new SecureRandom();
       handler = new Handler();
+      buttonOptionsList = new ArrayList<>();
 
       // load the shake animation that's used for incorrect answers
       shakeAnimation = AnimationUtils.loadAnimation(getActivity(),
@@ -107,12 +123,39 @@ public class MainActivityFragment extends Fragment {
       return view; // return the fragment's view for display
    }
 
+   @Override
+   public void onAttach(Activity activity)
+   {
+      super.onAttach(activity);
+
+      try
+      {
+         mCallback = (DynamicFrag) activity;
+      }
+      catch (ClassCastException e)
+      {
+         throw new ClassCastException(activity.toString()
+                 + " must implement OnHeadlineSelectedListener");
+      }
+   }
+
    // update guessRows based on value in SharedPreferences
-   public void updateGuessRows(SharedPreferences sharedPreferences) {
+   public int updateGuessRows(SharedPreferences sharedPreferences) {
       // get the number of guess buttons that should be displayed
       String choices =
          sharedPreferences.getString(MainActivity.CHOICES, null);
-      guessRows = Integer.parseInt(choices) / 2;
+      int choiceAmount = Integer.parseInt(choices);
+      guessRows = choiceAmount / 2;
+
+      if (choiceAmount < guessAmount) {
+         SharedPreferences.Editor editor =
+                 sharedPreferences.edit();
+         guessAmount = choiceAmount;
+         String guesses = String.valueOf(guessAmount);
+         editor.putString(MainActivity.GUESSES, guesses);
+         editor.apply();
+         return 1;
+      }
 
       // hide all quess button LinearLayouts
       for (LinearLayout layout : guessLinearLayouts)
@@ -121,12 +164,139 @@ public class MainActivityFragment extends Fragment {
       // display appropriate guess button LinearLayouts
       for (int row = 0; row < guessRows; row++)
          guessLinearLayouts[row].setVisibility(View.VISIBLE);
+
+      return 0;
    }
 
    // update world regions for quiz based on values in SharedPreferences
    public void updateRegions(SharedPreferences sharedPreferences) {
       regionsSet =
          sharedPreferences.getStringSet(MainActivity.REGIONS, null);
+   }
+
+   public int updateGuessAmount(SharedPreferences sharedPreferences) {
+      String guesses =
+              sharedPreferences.getString(MainActivity.GUESSES, null);
+      guessAmount = Integer.parseInt(guesses);
+
+      String choices = sharedPreferences.getString(MainActivity.CHOICES, null);
+      int choiceAmount = Integer.parseInt(choices);
+
+      if (choiceAmount < guessAmount) {
+         SharedPreferences.Editor editor =
+                 sharedPreferences.edit();
+         guessAmount = choiceAmount;
+         guesses = String.valueOf(guessAmount);
+         editor.putString(MainActivity.GUESSES, guesses);
+         editor.apply();
+         return 1;
+      }
+      return 0;
+   }
+
+   public void updateQuestionNum(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor =
+              sharedPreferences.edit();
+      String qNum = String.valueOf(questionNum);
+      editor.putString(MainActivity.QUESTION_NUM, qNum);
+      editor.apply();
+   }
+
+   public void updateQuizList(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor =
+              sharedPreferences.edit();
+      Set<String> a = new HashSet<>(quizCountriesList);
+      editor.putStringSet(MainActivity.QUIZ_COUNTRIES, a);
+      editor.apply();
+   }
+
+   public void updateCorrectGuesses(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      String a = String.valueOf(correctGuesses);
+      editor.putString(MainActivity.CORRECT_GUESSES, a);
+      editor.apply();
+   }
+
+   public void updateTotalGuesses(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      String a = String.valueOf(totalGuesses);
+      editor.putString(MainActivity.TOTAL_GUESSES, a);
+      editor.apply();
+   }
+
+   public void updateGuessesLeft(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      String a = String.valueOf(guessesLeft);
+      editor.putString(MainActivity.GUESSES_LEFT, a);
+      editor.apply();
+   }
+
+   public void updateFileNameList(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      Set<String> a = new HashSet<>(fileNameList);
+      editor.putStringSet(MainActivity.FILE_NAME_LIST, a);
+      editor.apply();
+   }
+
+   public void updateCorrectAnswer(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      String a = correctAnswer;
+      editor.putString(MainActivity.CORRECT_ANSWER, a);
+      editor.apply();
+   }
+
+   public void updateButtonOptionsList(SharedPreferences sharedPreferences) {
+      SharedPreferences.Editor editor = sharedPreferences.edit();
+      Set<String> a = new HashSet<>(buttonOptionsList);
+      editor.putStringSet(MainActivity.BUTTON_OPTIONS_LIST, a);
+      editor.apply();
+   }
+
+   public void loadStateFromPreferences(SharedPreferences sharedPreferences) {
+      String qNum = sharedPreferences.getString(MainActivity.QUESTION_NUM, null);
+      if (!qNum.equals(null)) {
+         questionNum = Integer.parseInt(qNum);
+      }
+      List<String> qCountries = new ArrayList<>(sharedPreferences.getStringSet(MainActivity.QUIZ_COUNTRIES, null));
+      if (qCountries != null) {
+         quizCountriesList = qCountries;
+      }
+      List<String> fNameList = new ArrayList<>(sharedPreferences.getStringSet(MainActivity.FILE_NAME_LIST, null));
+      if (fNameList != null) {
+         fileNameList = fNameList;
+      }
+      String cGuesses = sharedPreferences.getString(MainActivity.CORRECT_GUESSES, null);
+      if (!cGuesses.equals(null)) {
+         correctGuesses = Integer.parseInt(cGuesses);
+      }
+      String tGuesses = sharedPreferences.getString(MainActivity.TOTAL_GUESSES, null);
+      if (!tGuesses.equals(null)) {
+         totalGuesses = Integer.parseInt(tGuesses);
+      }
+      String gLeft = sharedPreferences.getString(MainActivity.GUESSES_LEFT, null);
+      if (!gLeft.equals(null)) {
+         guessesLeft = Integer.parseInt(gLeft);
+      }
+      String cAnswer = sharedPreferences.getString(MainActivity.CORRECT_ANSWER, null);
+      if (!cAnswer.equals(null)) {
+         correctAnswer = cAnswer;
+      }
+      List<String> bOptionsList = new ArrayList<>(sharedPreferences.getStringSet(MainActivity.BUTTON_OPTIONS_LIST, null));
+      if (bOptionsList != null) {
+         buttonOptionsList = bOptionsList;
+      }
+   }
+
+   public void setInitialLoadTrue() {
+      initialLoad = true;
+   }
+
+   public void setInitialLoadFalse() {
+      initialLoad = false;
+   }
+
+   public void startQuiz() {
+      loadNextFlag();
    }
 
    // set up and start the next quiz
@@ -149,9 +319,12 @@ public class MainActivityFragment extends Fragment {
          Log.e(TAG, "Error loading image file names", exception);
       }
 
-      correctAnswers = 0; // reset the number of correct answers made
+      correctAnswer = "";
+      correctGuesses = 0; // reset the number of correct answers made
+      questionNum = 1; // reset the question number
       totalGuesses = 0; // reset the total number of guesses the user made
       quizCountriesList.clear(); // clear prior list of quiz countries
+      buttonOptionsList.clear();
 
       int flagCounter = 1;
       int numberOfFlags = fileNameList.size();
@@ -175,14 +348,27 @@ public class MainActivityFragment extends Fragment {
 
    // after the user guesses a correct flag, load the next flag
    private void loadNextFlag() {
-      // get file name of the next flag and remove it from the list
-      String nextImage = quizCountriesList.remove(0);
-      correctAnswer = nextImage; // update the correct answer
-      answerTextView.setText(""); // clear answerTextView
+      guessesLeft = guessAmount;
+
+      String nextImage = "";
+
+      if (correctAnswer.equals("")) {
+         // get file name of the next flag and remove it from the list
+         nextImage = quizCountriesList.get(0);
+         correctAnswer = nextImage; // update the correct answer
+         answerTextView.setText(""); // clear answerTextView
+      } else {
+         String a = quizCountriesList.get(0);
+         int b = quizCountriesList.indexOf(correctAnswer);
+         quizCountriesList.set(0, correctAnswer);
+         quizCountriesList.set(b, a);
+         nextImage = quizCountriesList.get(0);
+         answerTextView.setText(""); // clear answerTextView
+      }
 
       // display current question number
       questionNumberTextView.setText(getString(
-         R.string.question, (correctAnswers + 1), FLAGS_IN_QUIZ));
+         R.string.question, (questionNum), FLAGS_IN_QUIZ));
 
       // extract the region from the next image's name
       String region = nextImage.substring(0, nextImage.indexOf('-'));
@@ -210,8 +396,18 @@ public class MainActivityFragment extends Fragment {
       int correct = fileNameList.indexOf(correctAnswer);
       fileNameList.add(fileNameList.remove(correct));
 
-      List<String> buttonLabelList = getButtonLabels(region);
+      List<String> buttonLabelList = new ArrayList<>();
 
+      if (buttonOptionsList == null || buttonOptionsList.size() == 0) {
+         buttonOptionsList = getButtonLabels(region);
+         for (String i : buttonOptionsList) {
+            buttonLabelList.add(i);
+         }
+      } else {
+         for (String i : buttonOptionsList) {
+            buttonLabelList.add(i);
+         }
+      }
       // add 2, 4, 6 or 8 guess Buttons based on the value of guessRows
       for (int row = 0; row < guessRows; row++) {
          // place Buttons in currentTableRow
@@ -231,12 +427,32 @@ public class MainActivityFragment extends Fragment {
          }
       }
 
+      for (String i : buttonOptionsList) {
+         if (i.equals(correctAnswer)) {
+            return;
+         }
+      }
+
       // randomly replace one Button with the correct answer
       int row = random.nextInt(guessRows); // pick random row
       int column = random.nextInt(2); // pick random column
-      LinearLayout randomRow = guessLinearLayouts[row]; // get the row
+      //LinearLayout randomRow = guessLinearLayouts[row]; // get the row
       String countryName = getCountryName(correctAnswer);
-      ((Button) randomRow.getChildAt(column)).setText(countryName);
+      Button correctGuessButton = (Button) guessLinearLayouts[row].getChildAt(column);
+      String cbText = String.valueOf(correctGuessButton.getText());
+      String replacedAns = "";
+
+      // find the region of the guessed country
+      for (String i : fileNameList) {
+         if (getCountryName(i).equals(cbText)) {
+            replacedAns = i;
+         }
+      }
+      if (buttonOptionsList != null || buttonOptionsList.size() != 0) {
+         int a = buttonOptionsList.indexOf(replacedAns);
+         buttonOptionsList.set(a, correctAnswer);
+      }
+      correctGuessButton.setText(countryName);
    }
 
    private List<String> getButtonLabels(String region) {
@@ -246,7 +462,7 @@ public class MainActivityFragment extends Fragment {
       }
       copiedFileNameList.remove(correctAnswer);
       List<String> buttonLabels = new ArrayList<>();
-      int sameRegionCount = guessRows;
+      int sameRegionCount = guessRows + 1;
       String filename;
       for (int a = 0; a < guessRows*2; a++) {
          int i = random.nextInt(copiedFileNameList.size());
@@ -275,7 +491,7 @@ public class MainActivityFragment extends Fragment {
    // animates the entire quizLinearLayout on or off screen
    private void animate(boolean animateOut) {
       // prevent animation into the the UI for the first flag
-      if (correctAnswers == 0)
+      if (initialLoad == true)
          return;
 
       // calculate center x and center y
@@ -326,7 +542,10 @@ public class MainActivityFragment extends Fragment {
          setButtonFlagImage(guessButton, guess);
 
          if (guess.equals(answer)) { // if the guess is correct
-            ++correctAnswers; // increment the number of correct answers
+            ++correctGuesses; // increment the number of correct answers
+            final String addInfoStr = quizCountriesList.remove(0);
+            correctAnswer = "";
+            buttonOptionsList.clear();
 
             // display correct answer in green text
             answerTextView.setText(answer + "!");
@@ -335,47 +554,22 @@ public class MainActivityFragment extends Fragment {
                   getContext().getTheme()));
 
             disableButtons(); // disable all guess Buttons
-
             // if the user has correctly identified FLAGS_IN_QUIZ flags
-            if (correctAnswers == FLAGS_IN_QUIZ) {
-               // DialogFragment to display quiz stats and start new quiz
-               DialogFragment quizResults =
-                  new DialogFragment() {
-                     // create an AlertDialog and return it
-                     @Override
-                     public Dialog onCreateDialog(Bundle bundle) {
-                        AlertDialog.Builder builder =
-                           new AlertDialog.Builder(getActivity());
-                        builder.setMessage(
-                           getString(R.string.results,
-                              totalGuesses,
-                              (1000 / (double) totalGuesses)));
-
-                        // "Reset Quiz" Button
-                        builder.setPositiveButton(R.string.reset_quiz,
-                           new DialogInterface.OnClickListener() {
-                              public void onClick(DialogInterface dialog,
-                                 int id) {
-                                 resetQuiz();
-                              }
-                           }
-                        );
-
-                        return builder.create(); // return the AlertDialog
-                     }
-                  };
-
-               // use FragmentManager to display the DialogFragment
-               quizResults.setCancelable(false);
-               quizResults.show(getFragmentManager(), "quiz results");
+            if (questionNum == FLAGS_IN_QUIZ) {
+               endGame();
             }
             else { // answer is correct but quiz is not over
+
+               //mCallback.displayAddInfoFrag(addInfoStr);
+
                // load the next flag after a 2-second delay
                handler.postDelayed(
                   new Runnable() {
                      @Override
                      public void run() {
                         animate(true); // animate the flag off the screen
+                        mCallback.displayAddInfoFrag(addInfoStr, questionNum);
+                        questionNum++;
                      }
                   }, 2000); // 2000 milliseconds for 2-second delay
             }
@@ -383,14 +577,77 @@ public class MainActivityFragment extends Fragment {
          else { // answer was incorrect
             flagImageView.startAnimation(shakeAnimation); // play shake
 
-            // display "Incorrect!" in red
-            answerTextView.setText(R.string.incorrect_answer);
-            answerTextView.setTextColor(getResources().getColor(
-               R.color.incorrect_answer, getContext().getTheme()));
-            guessButton.setEnabled(false); // disable incorrect answer
+            guessesLeft--;
+            if (guessesLeft == 0) {
+               final String addInfoStr = quizCountriesList.remove(0);
+               correctAnswer = "";
+               buttonOptionsList.clear();
+
+               answerTextView.setText("The correct answer is " + answer + "!");
+               answerTextView.setTextColor(getResources().getColor(
+                       R.color.incorrect_answer, getContext().getTheme()));
+               guessButton.setEnabled(false); // disable incorrect answer
+               disableButtons();
+               if (questionNum == FLAGS_IN_QUIZ) {
+                  endGame();
+               } else {
+
+                  //mCallback.displayAddInfoFrag(addInfoStr);
+
+                  handler.postDelayed(
+                          new Runnable() {
+                             @Override
+                             public void run() {
+                                animate(true); // animate the flag off the screen
+                                mCallback.displayAddInfoFrag(addInfoStr, questionNum);
+                                questionNum++;
+                             }
+                          }, 2000);
+               }
+            } else {
+               // display "Incorrect!" in red
+               answerTextView.setText(R.string.incorrect_answer);
+               answerTextView.setTextColor(getResources().getColor(
+                       R.color.incorrect_answer, getContext().getTheme()));
+               guessButton.setEnabled(false); // disable incorrect answer
+            }
          }
       }
    };
+
+   private void endGame() {
+      // DialogFragment to display quiz stats and start new quiz
+      DialogFragment quizResults =
+
+              new DialogFragment() {
+                 // create an AlertDialog and return it
+                 @Override
+                 public Dialog onCreateDialog(Bundle bundle) {
+                    AlertDialog.Builder builder =
+                            new AlertDialog.Builder(getActivity());
+                    builder.setMessage(
+                            getString(R.string.results,
+                                    correctGuesses, totalGuesses,
+                                    (100 * correctGuesses / (double) totalGuesses)));
+
+                    // "Reset Quiz" Button
+                    builder.setPositiveButton(R.string.reset_quiz,
+                            new DialogInterface.OnClickListener() {
+                               public void onClick(DialogInterface dialog,
+                                                   int id) {
+                                  resetQuiz();
+                               }
+                            }
+                    );
+
+                    return builder.create(); // return the AlertDialog
+                 }
+              };
+
+      // use FragmentManager to display the DialogFragment
+      quizResults.setCancelable(false);
+      quizResults.show(getFragmentManager(), "quiz results");
+   }
 
    private void setButtonFlagImage(Button guessButton, String guess) {
       // use AssetManager to load flag image from assets folder
